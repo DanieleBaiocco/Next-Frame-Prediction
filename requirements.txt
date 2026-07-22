@@ -6,3 +6,5 @@ protobuf>=6.31.1,<8.0.0
 numpy>=1.26
 imageio>=2.31
 imageio-ffmpeg>=0.4.9
+
+importlib-resources
