@@ -1,180 +1,144 @@
-# Next Frame Prediction — Moving MNIST
+# Next Frame Prediction with ConvLSTM
 
-ConvLSTM network that receives **3 consecutive Moving-MNIST frames** and predicts the **next frame**.
+A small **video prediction** project based on **Moving MNIST** and a stacked **ConvLSTM** network.
 
-This version is designed to work both:
+The model receives **3 consecutive 64×64 grayscale frames** and predicts the next frame. During inference, predictions are generated **autoregressively**: each predicted frame is fed back into the model to generate the following one.
 
-- interactively from a terminal;
-- through explicit CLI commands, useful for scripts, GitHub and Colab.
+The dataset is loaded through **TensorFlow Datasets** and is automatically downloaded if it is not already available locally.
 
-## 1. Install
+## Prediction examples
+
+Each example compares the original Moving MNIST sequence with the model output:
+
+**Left: ground truth — Right: autoregressive prediction**
+
+<table>
+  <tr>
+    <td><img src="outputs/videos/video_0002_gt_vs_prediction.gif" width="300" alt="Prediction example 2"></td>
+    <td><img src="outputs/videos/video_0003_gt_vs_prediction.gif" width="300" alt="Prediction example 3"></td>
+    <td><img src="outputs/videos/video_0127_gt_vs_prediction.gif" width="300" alt="Prediction example 127"></td>
+  </tr>
+</table>
+
+## Installation
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-cd <YOUR_REPOSITORY>
-python -m venv .venv
-
-# Linux/macOS
-source .venv/bin/activate
-
-# Windows PowerShell
-# .venv\Scripts\Activate.ps1
-
+git clone <YOUR_REPOSITORY_URL>
+cd next_frame_prediction
 pip install -r requirements.txt
 ```
 
-A GPU is strongly recommended for training.
+A GPU is recommended for training, but inference can also run on CPU.
 
-## 2. Interactive terminal menu
+## Command-line usage
 
-Run:
+Running the program without arguments opens an interactive menu:
 
 ```bash
 python main.py
 ```
 
-You will get:
+The same operations can also be executed directly from the command line.
 
-```text
-Next Frame Prediction
-=====================
-1) Train / resume training
-2) Generate a video with the best model
-3) Evaluate the best model
-0) Exit
-```
-
-This is the easiest entry point for someone who has just cloned the repository.
-
-> **Important:** inference needs a trained `best.weights.h5`. After a fresh clone, either run training first or provide a pretrained checkpoint at `outputs/checkpoints/best.weights.h5`. If you want users to generate videos immediately after cloning, publish the checkpoint separately (for example as a GitHub Release asset or with Git LFS) and document where to place it.
-
-## 3. Train
-
-```bash
-python main.py train
-```
-
-The best weights are saved automatically to:
-
-```text
-outputs/checkpoints/best.weights.h5
-```
-
-The checkpoint is selected using the lowest `val_mse`.
-
-Metadata about the best checkpoint is saved to:
-
-```text
-outputs/checkpoints/best.json
-```
-
-Training history is appended to:
-
-```text
-outputs/history.csv
-```
-
-If `best.weights.h5` already exists, training resumes from it by default:
-
-```bash
-python main.py train
-```
-
-To deliberately start from fresh random weights:
-
-```bash
-python main.py train --no-resume
-```
-
-Example with custom parameters:
-
-```bash
-python main.py train \
-  --epochs 50 \
-  --batch-size 32 \
-  --steps-per-epoch 225 \
-  --patience 8
-```
-
-## 4. Generate a video
-
-Generation always loads:
-
-```text
-outputs/checkpoints/best.weights.h5
-```
-
-Example:
+### Generate a prediction video
 
 ```bash
 python main.py generate --video-index 127
 ```
 
-`--video-index` chooses one of the **1000 test sequences**, from `0` to `999`.
+The command automatically loads the best available checkpoint from:
 
-The command creates:
+```text
+outputs/checkpoints/best.weights.h5
+```
+
+Generated videos are saved under `outputs/videos/`.
+
+Example with custom length and playback speed:
+
+```bash
+python main.py generate --video-index 127 --frames 17 --fps 20
+```
+
+Main options:
+
+| Option | Description | Default |
+|---|---|---:|
+| `--video-index` | Test sequence to use (`0`–`999`) | `0` |
+| `--frames` | Number of future frames generated autoregressively | all available GT frames |
+| `--fps` | Output video playback speed | `5` |
+| `--output-dir` | Base directory containing checkpoints and generated videos | `outputs` |
+| `--data-dir` | TensorFlow Datasets cache directory | `data/tfds` |
+
+Two files are normally produced:
 
 ```text
 outputs/videos/video_0127_prediction.mp4
 outputs/videos/video_0127_gt_vs_prediction.mp4
 ```
 
-In the comparison video:
+Moving MNIST sequences contain 20 frames. Since the first 3 are used as input, up to **17 future frames** have matching ground truth. If `--frames` is greater than 17, the model can still generate a longer prediction video, but the ground-truth comparison video is skipped.
 
-```text
-LEFT = ground truth
-RIGHT = model prediction
-```
-
-The first 3 frames are the real seed frames. Subsequent frames are generated **autoregressively**: every prediction is reused as input for the next prediction.
-
-Other examples:
+### Train / resume training
 
 ```bash
-python main.py generate --video-index 42 --fps 10
-python main.py generate --video-index 42 --frames 30
+python main.py train
 ```
 
-If you generate beyond the 20 frames available in Moving MNIST, the prediction-only MP4 is still saved, but the GT-comparison video is skipped.
+Training monitors validation MSE and automatically saves the best weights to:
 
-## 5. Evaluate the best model
+```text
+outputs/checkpoints/best.weights.h5
+```
+
+If that checkpoint already exists, training resumes from those weights by default. Early stopping is enabled and stops training after several epochs without validation improvement.
+
+Useful options:
+
+```bash
+python main.py train \
+  --epochs 30 \
+  --batch-size 32 \
+  --steps-per-epoch 225 \
+  --learning-rate 0.001 \
+  --patience 8
+```
+
+| Option | Description | Default |
+|---|---|---:|
+| `--epochs` | Maximum number of epochs | `30` |
+| `--batch-size` | Training batch size | `32` |
+| `--steps-per-epoch` | Training steps per epoch | `225` |
+| `--val-samples` | Number of validation samples | `960` |
+| `--learning-rate` | Adam learning rate | `0.001` |
+| `--patience` | Early-stopping patience | `8` |
+| `--no-resume` | Start from fresh weights instead of loading the best checkpoint | disabled |
+
+### Evaluate the best model
 
 ```bash
 python main.py evaluate
 ```
 
-This evaluates the saved best checkpoint on samples taken from the real test split.
+This loads `best.weights.h5` and evaluates it on the test split.
 
-## 6. Use persistent storage, e.g. Google Drive
+Optional parameters include `--batch-size`, `--test-samples`, `--seed`, `--output-dir`, and `--data-dir`.
 
-All persistent artifacts live under `--output-dir`.
-
-Example:
+For the complete CLI reference:
 
 ```bash
-python main.py train \
-  --output-dir /content/drive/MyDrive/next_frame_prediction
+python main.py --help
+python main.py train --help
+python main.py generate --help
+python main.py evaluate --help
 ```
 
-Then inference must use the same directory:
+## Model overview
 
-```bash
-python main.py generate \
-  --video-index 127 \
-  --output-dir /content/drive/MyDrive/next_frame_prediction
-```
+The network is composed of three stacked **ConvLSTM2D** layers with batch normalization, followed by a **Conv2D** output layer. It is trained with **mean squared error (MSE)** to predict the next frame.
 
-This means Colab can be disconnected without losing the best checkpoint.
+Dataset split used by the project:
 
-## Important fixes compared with the old notebook
-
-- Train / validation / test are now distinct:
-  - train: sequences `0:8000`
-  - validation: `8000:9000`
-  - test: `9000:10000`
-- The old generator yielded **inside the batch-building loop**, producing partially-filled batches. This is fixed.
-- The old `test_dataset` was created from the validation generator. This is fixed.
-- The metric is named correctly as MSE instead of “accuracy”.
-- Best weights are persisted to disk, not only kept in RAM.
-- Inference explicitly loads the best saved weights.
-- Video generation is available from the terminal and supports choosing the test-video index.
+- 8,000 sequences for training
+- 1,000 sequences for validation
+- 1,000 sequences for testing

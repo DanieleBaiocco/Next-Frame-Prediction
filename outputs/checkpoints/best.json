@@ -1,0 +1,5 @@
+{
+  "best_val_mse": 0.012078349478542805,
+  "epoch": 14,
+  "monitor": "val_mse"
+}
