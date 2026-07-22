@@ -34,6 +34,7 @@ pip install -r requirements.txt
 ```
 
 A GPU is recommended for training, but inference can also run on CPU.
+It is not needed to train the network because it's already been trained for 20 epochs.
 
 ## Command-line usage
 
