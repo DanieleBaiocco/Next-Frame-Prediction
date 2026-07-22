@@ -23,8 +23,13 @@ Each example compares the original Moving MNIST sequence with the model output:
 ## Installation
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
-cd next_frame_prediction
+git clone <REPOSITORY_URL>
+cd Next-Frame-Prediction
+
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
